@@ -4,7 +4,8 @@ import docker
 
 client = docker.from_env()
 
-config = yaml.load('config.yaml')
+with open('config.yml', 'r') as fhand:
+    config = yaml.safe_load(fhand)
 
 def pull_and_push(tag_name):
     latest = client.images.pull(config['odm_registry'], tag='latest')
