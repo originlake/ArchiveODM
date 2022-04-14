@@ -40,6 +40,9 @@ jobs:
           python-version: 3.8
           cache: 'pip'
 
+      - name: Install skopeo
+        run: sudo apt-get update -y && sudo apt-get install -y skopeo
+
       - name: Install dependencies
         run: pip install -r requirements.txt
       

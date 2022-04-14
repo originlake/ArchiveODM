@@ -1,3 +1,3 @@
-archive_registry: "originlake/odm"
-odm_registry: "opendronemap/odm"
+archive_repository: "originlake/odm"
 odm_repository: "opendronemap/odm"
+odm_git_repository: "opendronemap/odm"
