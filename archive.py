@@ -7,11 +7,11 @@ with open('config.yml', 'r') as fhand:
     config = yaml.safe_load(fhand)
 
 def copy_images(src_image, tar_image):
-    p = subprocess.run(["skopeo","copy", f"docker://{src_image}", f"docker://{tar_image}", "--all"])
+    p = subprocess.run(["docker","run","quay.io/skopeo/stable:latest","copy", f"docker://{src_image}", f"docker://{tar_image}", "--all"])
     p.check_returncode()
 
 def get_tags(repository):
-    p = subprocess.run(["skopeo", "list-tags", f"docker://{repository}"], capture_output=True)
+    p = subprocess.run(["docker","run","quay.io/skopeo/stable:latest", "list-tags", f"docker://{repository}"], capture_output=True)
     p.check_returncode()
     return json.loads(p.stdout.decode('utf-8'))["Tags"]
 
@@ -21,14 +21,19 @@ def get_api_json(url):
     return resp.json()
 
 def is_diff(image1, image2):
-    p = subprocess.run(["skopeo", "inspect", f"docker://{image1}", "--raw"], capture_output=True)
+    p = subprocess.run(["docker","run","quay.io/skopeo/stable:latest", "inspect", f"docker://{image1}", "--raw"], capture_output=True)
     p.check_returncode()
     image_info1 = json.loads(p.stdout.decode('utf-8'))
-    p = subprocess.run(["skopeo", "inspect", f"docker://{image2}", "--raw"], capture_output=True)
+    p = subprocess.run(["docker","run","quay.io/skopeo/stable:latest", "inspect", f"docker://{image2}", "--raw"], capture_output=True)
     p.check_returncode()
     image_info2 = json.loads(p.stdout.decode('utf-8'))
-    digest1 = [x for x in image_info1["manifests"] if x['platform']['architecture'] == "amd64"][0]
-    digest2 = [x for x in image_info2["manifests"] if x['platform']['architecture'] == "amd64"][0]
+    if "manifests" in image_info1 and "manifests" in image_info2:
+        digest1 = [x for x in image_info1["manifests"] if x['platform']['architecture'] == "amd64"][0]
+        digest2 = [x for x in image_info2["manifests"] if x['platform']['architecture'] == "amd64"][0]
+    else:
+        # TODO: handle this
+        print("build without manifests, skip for now")
+        return False
     return digest1 != digest2
     
 def main():
