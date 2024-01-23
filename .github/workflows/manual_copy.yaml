@@ -1,0 +1,39 @@
+on:
+  workflow_dispatch:
+    inputs:
+      source_image:
+        description: 'Source image'
+        required: true
+        default: 'opendronemap/odm:latest'
+      destination_image:
+        description: 'Destination image'
+        required: true
+        default: 'originlake/odm:latest'
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python version
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.8
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: pull skopeo image
+        run: docker pull quay.io/skopeo/stable:latest
+
+      - name: Run python script
+        run: python manual_copy.py
+        env:
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          SOURCE_IMAGE: ${{ github.event.inputs.source_image }}
+          TARGET_IMAGE: ${{ github.event.inputs.destination_image }}
