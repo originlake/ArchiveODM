@@ -3,10 +3,13 @@ import yaml
 import requests
 import json
 import docker
+import re
+import datetime
 
 DOCKER_HUB_USERNAME = os.environ.get("DOCKER_HUB_USERNAME")
 DOCKER_HUB_TOKEN = os.environ.get("DOCKER_HUB_ACCESS_TOKEN")
 SKOPEO_IMAGE = "quay.io/skopeo/stable:latest"
+DATE_PATTERN = r'(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{6})\d*Z'
 client = docker.from_env()
 
 with open('config.yml', 'r') as fhand:
@@ -52,6 +55,29 @@ def is_diff(image1, image2):
         return False
     return digest1 != digest2
 
+def is_newer(image1, image2):
+    def get_date(date_str):
+        match = re.search(DATE_PATTERN, date_str)
+        if not match:
+            return None
+        year = int(match.group(1))
+        month = int(match.group(2))
+        day = int(match.group(3))
+        hour = int(match.group(4))
+        minute = int(match.group(5))
+        second = int(match.group(6))
+        microsecond = int(match.group(7))
+        return datetime.datetime(year, month, day, hour, minute, second, microsecond)
+    res = skopeo_run(["inspect", f"docker://{image1}"])
+    image_info1 = json.loads(res)
+    date1 = get_date(image_info1['Created'])
+    res = skopeo_run(["inspect", f"docker://{image2}"])
+    image_info2 = json.loads(res)
+    date2 = get_date(image_info2['Created'])
+    if date1 is None or date2 is None:
+        raise ValueError("Failed to get image creation date")
+    return date1 > date2
+
 def main():
     archieved_tags = get_tags(config["archive_repository"])
     odm_tags = get_tags(config["odm_repository"])
@@ -73,7 +99,8 @@ def main():
 
     # docker image can be pushed later than release published
     if latest_release['name'] in odm_tags:
-        if is_diff(f"{config['odm_repository']}:{latest_release['name']}", f"{config['archive_repository']}:{latest_release['name']}"):
+        if is_diff(f"{config['odm_repository']}:{latest_release['name']}", f"{config['archive_repository']}:{latest_release['name']}") and \
+            is_newer(f"{config['odm_repository']}:{latest_release['name']}", f"{config['archive_repository']}:{latest_release['name']}"):
             print(f"Detect different digests between odm and archived image of release {latest_release['name']}, start archiving")
             status = copy_images(f"{config['odm_repository']}:{latest_release['name']}", f"{config['archive_repository']}:{latest_release['name']}")
             # ignore gpu as it won't be tagged
